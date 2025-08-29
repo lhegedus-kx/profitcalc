@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Investment Profit Rate Calculator</title>
+  <meta name="description" content="A tiny GitHub Pages site that computes ROI and annualized return (CAGR) using Python via Pyodide in the browser." />
+  <style>
+    :root { --bg:#0b0c10; --card:#111317; --text:#e7e9ee; --muted:#a7adbb; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Arial, "Apple Color Emoji", "Segoe UI Emoji"; background:var(--bg); color:var(--text); }
+    header { padding:24px; text-align:center; }
+    h1 { margin:0 0 8px; font-size:clamp(22px, 4vw, 32px); }
+    main { max-width:760px; margin:0 auto; padding:16px; }
+    .card { background:var(--card); border:1px solid #1b1f2a; border-radius:16px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.25); }
+    label { display:block; margin:12px 0 6px; color:var(--muted); }
+    input { width:100%; padding:12px 14px; border-radius:12px; border:1px solid #2a3040; background:#0f1219; color:var(--text); outline:none; }
+    input:focus { border-color:#3b82f6; box-shadow:0 0 0 3px rgba(59,130,246,.25); }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    button { margin-top:16px; width:100%; padding:12px 16px; border-radius:12px; border:0; background:#3b82f6; color:white; font-weight:600; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+    .result { margin-top:16px; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .tile { background:#0f1219; border:1px solid #1b1f2a; border-radius:12px; padding:14px; }
+    .k { color:var(--muted); font-size:12px; }
+    .v { font-size:22px; font-weight:700; }
+    .err { margin-top:12px; color:#fca5a5; font-weight:600; display:none; }
+    .foot { margin-top:10px; color:var(--muted); font-size:12px; }
+    noscript { display:block; margin-top:16px; color:#fca5a5; }
+    .spinner { display:inline-block; width:16px; height:16px; border-radius:50%; border:2px solid #cbd5e1; border-top-color:transparent; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Investment Profit Rate</h1>
+    <div class="foot">ROI % and annualized return (CAGR), computed in <strong>Python</strong> (via Pyodide) directly in your browser.</div>
+  </header>
+
+  <main>
+    <section class="card">
+      <form id="calcForm">
+        <label for="initial">Initial amount</label>
+        <input id="initial" name="initial" type="number" min="0" step="0.01" placeholder="e.g., 100000" required />
+
+        <div class="row">
+          <div>
+            <label for="final">Final amount</label>
+            <input id="final" name="final" type="number" min="0" step="0.01" placeholder="e.g., 126000" required />
+          </div>
+          <div>
+            <label for="years">Holding period (years)</label>
+            <input id="years" name="years" type="number" min="0" step="0.0001" placeholder="e.g., 1.5" required />
+          </div>
+        </div>
+
+        <button id="runBtn" type="submit" disabled>
+          <span class="spinner" id="btnSpin" hidden></span>
+          <span id="btnText">Compute with Python</span>
+        </button>
+
+        <div class="err" id="error"></div>
+
+        <div class="result" aria-live="polite">
+          <div class="tile">
+            <div class="k">Total return (ROI)</div>
+            <div class="v" id="roi">—</div>
+          </div>
+          <div class="tile">
+            <div class="k">Annualized return (CAGR)</div>
+            <div class="v" id="cagr">—</div>
+          </div>
+        </div>
+
+        <div class="foot">Formulae: ROI = (Final − Initial) / Initial. CAGR = (Final / Initial)<sup>1/years</sup> − 1.</div>
+        <noscript>Enable JavaScript to run Python in the browser.</noscript>
+      </form>
+    </section>
+
+    <section class="foot" style="margin-top:16px">
+      <details>
+        <summary>How to deploy on GitHub Pages</summary>
+        <ol>
+          <li>Create a repo (e.g. <code>invest-calc</code>), add this file as <code>index.html</code>, commit & push.</li>
+          <li>Add a separate file <code>calc.py</code> (see repo).</li>
+          <li>In repo settings → Pages → Source: <em>Deploy from a branch</em>, branch: <code>main</code>, folder: <code>/root</code>.</li>
+          <li>Wait for Pages to publish, then open the URL it gives you.</li>
+        </ol>
+      </details>
+    </section>
+  </main>
+
+  <!-- Load Pyodide (Python-in-the-browser). -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js" crossorigin="anonymous"></script>
+  <script>
+    const btn = document.getElementById('runBtn');
+    const btnText = document.getElementById('btnText');
+    const btnSpin = document.getElementById('btnSpin');
+    const errEl = document.getElementById('error');
+    const roiEl = document.getElementById('roi');
+    const cagrEl = document.getElementById('cagr');
+
+    let pyodideReadyPromise = (async () => {
+      const pyodide = await loadPyodide();
+      // Load calc.py from the repo (must be in the same folder as index.html)
+      await pyodide.runPythonAsync(await (await fetch("calc.py")).text());
+      return pyodide;
+    })();
+
+    (async () => {
+      await pyodideReadyPromise;
+      btn.disabled = false;
+      btnText.textContent = 'Compute with Python';
+    })();
+
+    function showBusy(busy) {
+      btn.disabled = busy;
+      btnSpin.hidden = !busy;
+      btnText.textContent = busy ? 'Computing…' : 'Compute with Python';
+    }
+
+    document.getElementById('calcForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errEl.style.display = 'none';
+      showBusy(true);
+
+      const initial = Number(document.getElementById('initial').value);
+      const final = Number(document.getElementById('final').value);
+      const years = Number(document.getElementById('years').value);
+
+      try {
+        const pyodide = await pyodideReadyPromise;
+        const code = `import json\njs_out = json.dumps(calc_returns(${initial}, ${final}, ${years}))\njs_out`;
+        const jsonStr = await pyodide.runPythonAsync(code);
+        const out = JSON.parse(jsonStr);
+        const fmt = (v) => (v === null || Number.isNaN(v)) ? '—' : `${v.toFixed(2)} %`;
+        roiEl.textContent = fmt(out.roi_pct);
+        cagrEl.textContent = fmt(out.cagr_pct);
+      } catch (err) {
+        errEl.textContent = (err && err.message) ? err.message : String(err);
+        errEl.style.display = 'block';
+        roiEl.textContent = '—';
+        cagrEl.textContent = '—';
+      } finally {
+        showBusy(false);
+      }
+    });
+  </script>
+</body>
+</html>
